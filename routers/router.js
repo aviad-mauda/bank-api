@@ -7,9 +7,46 @@ const app = express()
 
 app.use(express.json())
 
-app.get('/test', async (req, res) => {
-    res.send({res: "good"});
-    
+
+
+app.post('/signup', async (req, res) => {
+    const user = new User(req.body)
+    try{
+        const checkUser = await User.findOne({'email':req.body.email})
+        if(!checkUser){
+            user.password = await bcrypt.hash(user.password, 8);
+            await user.save()
+            delete user._doc.__v;
+            res.status(201).send({ user })
+        } else {
+            res.status(200).send("user already exist");
+        }
+    } catch (e) {
+        res.status(400).send(e)
+    }
+})
+
+app.post('/login', async (req, res) => {
+    try {
+        const user = await User.findByCredentials(req.body.email, req.body.password)
+        const token = await user.generateAuthToken()
+        res.send({ token })
+    } catch (e) {
+        res.status(400).send()
+    }
+})
+
+app.post('/getCustomer', auth, async (req, res) => {
+    try {
+        const customer = await Customer.findOne({ customerID: req.body.customerID });
+        if (!customer) {
+            return res.status(404).send()
+        }
+        delete customer._doc.__v;
+        res.send(customer);
+    } catch (e) {
+        res.status(500).send()
+    }
 })
 
 app.get('/getAllCustomers', async (req, res) => {
@@ -26,42 +63,6 @@ app.get('/getAllCustomers', async (req, res) => {
             customers.push(customer);  
         }
         res.send(customers);
-    } catch (e) {
-        res.status(500).send()
-    }
-})
-
-app.post('/login', async (req, res) => {
-    try {
-        const user = await User.findByCredentials(req.body.email, req.body.password)
-        const token = await user.generateAuthToken()
-        res.send({ token })
-    } catch (e) {
-        res.status(400).send()
-    }
-})
-
-// router.post('/logout', auth, async (req, res) => {
-//     try {
-//         req.user.tokens = req.user.tokens.filter((token) => {
-//             return token.token !== req.token
-//         })
-//         await req.user.save()
-
-//         res.send()
-//     } catch (e) {
-//         res.status(500).send()
-//     }
-// })
-
-app.post('/getCustomer', auth, async (req, res) => {
-    try {
-        const customer = await Customer.findOne({ customerID: req.body.customerID });
-        if (!customer) {
-            return res.status(404).send()
-        }
-        delete customer._doc.__v;
-        res.send(customer);
     } catch (e) {
         res.status(500).send()
     }
